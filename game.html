@@ -27,13 +27,6 @@
             from { right: -30px; }
             to { right: 100vw; }
         }
-        
-        /* Mobile screen adjustments */
-        @media (max-width: 768px) {
-            #ball {
-                left: 20px;  /* On mobile, place the ball to the left */
-            }
-        }
     </style>
 </head>
 <body class="bg-lightblue font-sans overflow-hidden">
@@ -59,18 +52,16 @@
         let ballPosition = window.innerHeight / 2 - 25;  // Starting in the middle
         let score = 0;
         let gameOver = false;
+        let gameStarted = false;  // To track if the game has started
         const gravity = .8;  // Increased gravity to simulate more weight
         const maxFlyHeight = window.innerHeight - 50;
         const colors = ['red', 'yellow', 'blue', 'orange', 'green']; // Obstacle colors
         let obstacles = [];
         let obstacleSpeed = 2;  // Starting speed for obstacles
         let obstacleFrequency = 4000;  // Starting frequency for creating obstacles (4 seconds)
-        const maxObstacleSpeed = 5;  // Maximum speed for obstacles
-        const maxObstacleFrequency = 1000;  // Minimum frequency for creating obstacles (1 second)
-        let liftSound;  // Sound variable for lifting sound
 
         function updateScore() {
-            if (!gameOver) {
+            if (!gameOver && gameStarted) {
                 score++;
                 scoreDisplay.innerText = `Score: ${score}`;
             }
@@ -87,23 +78,20 @@
             obstacle.style.right = '-30px';  // Start from the right side of the screen
             document.getElementById('game').appendChild(obstacle);
 
-            // Move obstacle from right to left (slower movement)
             let obstacleInterval = setInterval(() => {
                 if (gameOver) {
                     clearInterval(obstacleInterval);
-                    return;  // Stop moving obstacles if the game is over
+                    return;
                 }
                 let obstaclePosition = parseInt(obstacle.style.right);
-                obstaclePosition += obstacleSpeed;  // Move obstacle based on current speed
+                obstaclePosition += obstacleSpeed;
                 obstacle.style.right = obstaclePosition + 'px';
 
-                // Check if the obstacle has passed the screen or collided with the ball
                 if (obstaclePosition >= window.innerWidth) {
-                    obstacle.remove();  // Remove obstacle once it moves out of screen
+                    obstacle.remove();
                     clearInterval(obstacleInterval);
                 }
 
-                // Check for collision with the ball
                 const ballRect = ball.getBoundingClientRect();
                 const obstacleRect = obstacle.getBoundingClientRect();
 
@@ -117,7 +105,7 @@
                         addBonusPoints();
                         obstacle.remove();
                     } else if (obstacle.style.backgroundColor === 'yellow') {
-                        addBonusPoints(50);  // Add 50 points for yellow obstacles
+                        addBonusPoints(50);
                         obstacle.remove();
                     } else {
                         endGame();
@@ -130,11 +118,11 @@
         }
 
         function addBonusPoints(points = 100) {
-            score += points;  // Add points for obstacle
+            score += points;
             scoreDisplay.innerText = `Score: ${score}`;
-            bonusDisplay.style.display = 'block';  // Show bonus notification
+            bonusDisplay.style.display = 'block';
             setTimeout(() => {
-                bonusDisplay.style.display = 'none';  // Hide notification after 2 seconds
+                bonusDisplay.style.display = 'none';
             }, 2000);
         }
 
@@ -146,42 +134,34 @@
                 const microphone = audioContext.createMediaStreamSource(stream);
                 analyser.fftSize = 256;
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                
-                // Load the sound effect
-                liftSound = new Audio('path/to/your/soundfile.mp3');  // Make sure to provide a valid sound file path
 
                 microphone.connect(analyser);
 
                 function analyzeAudio() {
-                    if (gameOver) return;  // Stop if game is over
+                    if (gameOver || !gameStarted) return;
 
                     analyser.getByteFrequencyData(dataArray);
                     const volume = dataArray.reduce((acc, val) => acc + val) / dataArray.length;
 
-                    // Adjust lift sensitivity here
                     if (volume > 30) {
                         gravitySpeed = -volume * 0.05;
-
-                        // Play sound when the ball is lifted
-                        if (gravitySpeed < -1) {  // Adjust the threshold as needed
-                            liftSound.currentTime = 0; // Reset sound to start
-                            liftSound.play();
-                        }
                     } else {
                         gravitySpeed += gravity;
                     }
 
                     updateBallPosition();
-                    requestAnimationFrame(analyzeAudio);  // Continuously update
+                    requestAnimationFrame(analyzeAudio);
                 }
 
-                analyzeAudio();  // Start analyzing audio
+                analyzeAudio();
             } catch (error) {
                 console.error('Microphone access error:', error);
             }
         }
 
         function updateBallPosition() {
+            if (!gameStarted || gameOver) return;
+
             ballPosition -= gravitySpeed;
 
             if (ballPosition < 0) {
@@ -192,14 +172,12 @@
 
             ball.style.bottom = ballPosition + 'px';
 
-            // Center or left align the ball based on screen size
             if (window.innerWidth <= 768) {
                 ball.style.left = '20px';  // Position ball to the left on mobile
             } else {
                 ball.style.left = (window.innerWidth / 2 - 25) + 'px';  // Center on larger screens
             }
 
-            // Check for wall collisions
             const ballRect = ball.getBoundingClientRect();
             const topWallRect = topWall.getBoundingClientRect();
             const bottomWallRect = bottomWall.getBoundingClientRect();
@@ -208,7 +186,7 @@
                 ballRect.top <= topWallRect.bottom || 
                 ballRect.bottom >= bottomWallRect.top
             ) {
-                endGame();  // Game over if the ball touches top or bottom walls
+                endGame();
             }
         }
 
@@ -229,26 +207,27 @@
             gameOverDisplay.style.display = 'none';
             restartBtn.style.display = 'none';
 
-            // Reset obstacles and start the game again
             obstacles.forEach(obstacle => obstacle.remove());
             obstacles = [];
             obstacleInterval = setInterval(createObstacle, obstacleFrequency);
-            updateScore();  // Start updating score
+            updateScore();
         }
 
-        // Center the ball initially
-        function centerBall() {
-            ball.style.left = (window.innerWidth / 2 - 25) + 'px';  // Center the ball horizontally
+        function startGame() {
+            setTimeout(() => {
+                gameStarted = true;
+                setupAudio();
+            }, 3000);  // 3-second delay
         }
 
-        // Start audio setup and the game loop
-        setupAudio();
+        window.onload = function() {
+            startGame();
+        };
+
         let obstacleInterval = setInterval(createObstacle, obstacleFrequency);
-        setInterval(updateScore, 1000);  // Update score every second
+        setInterval(updateScore, 1000);
 
-        // Center the ball when the window is resized
-        window.addEventListener('resize', centerBall);
-        centerBall();  // Center the ball on page load
+        window.addEventListener('resize', updateBallPosition);
     </script>
 </body>
 </html>
